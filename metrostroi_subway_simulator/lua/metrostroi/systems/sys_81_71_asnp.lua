@@ -4,6 +4,10 @@
 -- Copyright (C) 2013-2018 Metrostroi Team & FoxWorks Aerospace s.r.o.
 -- Contains proprietary code. See license.txt for additional information.
 --------------------------------------------------------------------------------
+
+
+-- Редакция 2023 года для Metrostroi ЪЕЪ
+
 Metrostroi.DefineSystem("81_71_ASNP")
 TRAIN_SYSTEM.DontAccelerateSimulation = true
 function TRAIN_SYSTEM:Initialize()
@@ -192,7 +196,7 @@ if CLIENT then
             local ltbl = stbl[Line]
 			
             self:PrintText(0, 0, "Выберите линию  -")
-			self:PrintText(2, 1, (ltbl.Name or "VAS VINESLI"))
+			self:PrintText(2, 1, (ltbl.Name or "None"))
 		end
 		
         if State == 3 then

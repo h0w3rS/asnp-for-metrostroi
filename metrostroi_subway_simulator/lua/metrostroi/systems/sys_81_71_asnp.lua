@@ -298,9 +298,8 @@ if CLIENT then
 			local station = Train:GetNW2Int("ASNP:Station", 1)
             local ltbl = stbl[Line]			
 			local last = Train:GetNW2Int("ASNP:LastStation", 1)
-            local stopMessage = Train:GetNW2Bool("ASNP:StopMessage", false)
 
-            if stopMessage then 
+            if Train:GetNW2Bool("ASNP:StopMessage", false) then 
 
                 self:PrintText(2, 0, "ПЕРЕД ОТПРАВЛЕНИЕМ")
                 self:PrintText(0, 1, "НАЖМИ КНОПКУ   ОБЪЯВИТЬ")

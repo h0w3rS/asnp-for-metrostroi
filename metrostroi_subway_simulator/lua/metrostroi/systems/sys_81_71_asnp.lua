@@ -575,7 +575,6 @@ function TRAIN_SYSTEM:Trigger(name,value)
                 
                 self.StopMessage = not self.StopMessage
                 
-                print(self.StopMessage)
                 self:AnnQueue{"click1","buzz_start"}
 
                 self:AnnQueue(ltbl.spec_wait[self.StopMessage and 1 or 2])

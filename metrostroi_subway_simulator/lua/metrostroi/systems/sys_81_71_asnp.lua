@@ -33,7 +33,7 @@ function TRAIN_SYSTEM:Initialize()
     self.Path = false
     self.Station = 1
     self.Arrived = true
-
+    self.StopMessage = false
     self.RouteNumber = 0
 
     self.Line = 1
@@ -106,6 +106,7 @@ if CLIENT then
         render.PopRenderTarget()
     end
 	
+    -- перевод мелких букв на капс
 	local symb = {
 		["а"] = 'А',["б"] = 'Б',["в"] = 'В',["г"] = 'Г',["д"] = 'Д',["е"] = 'Е',["ё"] = 'Ё',["ж"] = 'Ж',["з"] = 'З',["и"] = 'И',["й"] = "Й",
 		["к"] = "К",["л"] = "Л",["м"] = 'М',["н"] = 'Н',["о"] = 'О',["п"] = 'П',["р"] = 'Р',["с"] = 'С',["т"] = 'Т',["у"] = 'У',["ф"] = 'Ф',
@@ -196,7 +197,7 @@ if CLIENT then
             local ltbl = stbl[Line]
 			
             self:PrintText(0, 0, "Выберите линию  -")
-			self:PrintText(2, 1, (ltbl.Name or "None"))
+			self:PrintText(2, 1, (ltbl.Name or "Не найдена"))
 		end
 		
         if State == 3 then
@@ -297,35 +298,43 @@ if CLIENT then
 			local station = Train:GetNW2Int("ASNP:Station", 1)
             local ltbl = stbl[Line]			
 			local last = Train:GetNW2Int("ASNP:LastStation", 1)
+            local stopMessage = Train:GetNW2Bool("ASNP:StopMessage", false)
 
-            local Dep = self.Train:GetNW2Bool("ASNP:Arrived", false)
-            if Dep then self:PrintText(0, 0, "Отпр.") else self:PrintText(0, 0, "Приб.") end
+            if stopMessage then 
 
-            self:PrintText(6, 0, ltbl[station][2], false, false, true)
-
-            if Train:GetNW2Bool("ASNP:Playing", false) then self:PrintText(0, 1, "<<<  ИДЁТ ОБЪЯВЛЕНИЕ  >>>")
-            else 
-
-                self:PrintText(0, 1, string.rep("I", path and 2 or 1))
-
-                if Train:GetNW2Bool("ASNP:IKPORT",false) then self:PrintText(5,0,"$")				
-                elseif Train:GetNW2Bool("ASNP:StationArr",false) then self:PrintText(5,0,"+")
-                end
+                self:PrintText(2, 0, "ПЕРЕД ОТПРАВЛЕНИЕМ")
+                self:PrintText(0, 1, "НАЖМИ КНОПКУ   ОБЪЯВИТЬ")
                 
-                if RouteNumber[1] ~= "0" then self:PrintText(2.5, 1, RouteNumber[1]) end
-                self:PrintText(3.5, 1, RouteNumber[2])
+            else
+                local Dep = self.Train:GetNW2Bool("ASNP:Arrived", false)
+                if Dep then self:PrintText(0, 0, "Отпр.") else self:PrintText(0, 0, "Приб.") end
+    
+                self:PrintText(6, 0, ltbl[station][2], false, false, true)
 
-                if last == -1 then self:PrintText(6, 1, "КОЛЬЦЕВОЙ")			
-                else self:PrintText(6, 1, ltbl[last][2]:upper(), false, false, true)
+                if Train:GetNW2Bool("ASNP:Playing", false) then self:PrintText(0, 1, "<<<  ИДЁТ ОБЪЯВЛЕНИЕ  >>>")
+                else 
+
+                    self:PrintText(0, 1, string.rep("I", path and 2 or 1))
+
+                    if Train:GetNW2Bool("ASNP:IKPORT",false) then self:PrintText(5,0,"$")				
+                    elseif Train:GetNW2Bool("ASNP:StationArr",false) then self:PrintText(5,0,"+")
+                    end
+                    
+                    if RouteNumber[1] ~= "0" then self:PrintText(2.5, 1, RouteNumber[1]) end
+                    self:PrintText(3.5, 1, RouteNumber[2])
+
+                    if last == -1 then self:PrintText(6, 1, "КОЛЬЦЕВОЙ")			
+                    else self:PrintText(6, 1, ltbl[last][2]:upper(), false, false, true)
+                    end
+
+                    if Train:GetNW2Bool("ASNP:CanLocked", false) then
+
+                        if Train:GetNW2Bool("ASNP:LockedL", false) then self:PrintText(20, 0, "Бл.Л") end
+                        if Train:GetNW2Bool("ASNP:LockedR", false) then self:PrintText(20, 1, "Бл.П") end
+
+                    end
+
                 end
-
-                if Train:GetNW2Bool("ASNP:CanLocked", false) then
-
-                    if Train:GetNW2Bool("ASNP:LockedL",false) then self:PrintText(20, 0, "Бл.Л") end
-                    if Train:GetNW2Bool("ASNP:LockedR",false) then self:PrintText(20, 1, "Бл.П") end
-
-                end
-
             end
 
         end
@@ -514,7 +523,7 @@ end
         Down1 - аналогично что сверху, но понижение значения
 
             Статусы 
-
+        1 - АСНП только включилась
         2 - Выбор линии
         3 - Выбор пути
         4 - Выбор маршрута
@@ -563,11 +572,15 @@ function TRAIN_SYSTEM:Trigger(name,value)
                 self:AnnQueue(ltbl.spec_last)
                 self:AnnQueue{"buzz_end","click2"}
 
-            else
-
+            else -- объявления о ожидании отправки поезда
+                
                 self.StopMessage = not self.StopMessage
+                
+                print(self.StopMessage)
                 self:AnnQueue{"click1","buzz_start"}
+
                 self:AnnQueue(ltbl.spec_wait[self.StopMessage and 1 or 2])
+
                 self:AnnQueue{"buzz_end","click2"}
 
             end
@@ -870,19 +883,20 @@ function TRAIN_SYSTEM:Think()
 		self.Down = true
 	end
 	
-    Train:SetNW2Int("ASNP:State",self.State)    -- статусы АСНП
-    Train:SetNW2Int("ASNP:RouteNumber",self.RouteNumber)  -- номер маршрута
+    Train:SetNW2Int("ASNP:State",self.State)                    -- статусы АСНП
+    Train:SetNW2Int("ASNP:RouteNumber",self.RouteNumber)        -- номер маршрута
 
-    Train:SetNW2Int("ASNP:Selected", self.Selected) -- зачем-то нужон
-    Train:SetNW2Int("ASNP:Line", self.Line)     -- линия
+    Train:SetNW2Int("ASNP:Selected", self.Selected)             -- что выбрано
+    Train:SetNW2Int("ASNP:Line", self.Line)                     -- линия
     Train:SetNW2Int("ASNP:FirstStation", self.FirstStation)     -- первая станция
-    Train:SetNW2Int("ASNP:LastStation", self.LastStation)   -- последняя станция
-    Train:SetNW2Bool("ASNP:Path", self.Path)    -- номер пути
+    Train:SetNW2Int("ASNP:LastStation", self.LastStation)       -- последняя станция
+    Train:SetNW2Bool("ASNP:Path", self.Path)                    -- номер пути
 
-    Train:SetNW2Bool("ASNP:Station", self.Station)  -- станция где сейчас
-    Train:SetNW2Bool("ASNP:Arrived", self.Arrived)  -- статус "приб", "отпр"
+    Train:SetNW2Bool("ASNP:Station", self.Station)              -- станция где сейчас
+    Train:SetNW2Bool("ASNP:Arrived", self.Arrived)              -- статус "приб", "отпр"
     self.LineOut = #Train.Announcer.Schedule > 0 and 1 or 0
-    Train:SetNW2Bool("ASNP:Playing", self.LineOut > 0)  -- проигрывание информатора
+    Train:SetNW2Bool("ASNP:Playing", self.LineOut > 0)          -- проигрывание информатора
+    Train:SetNW2Bool("ASNP:StopMessage", self.StopMessage)
 	
     if Train.VBD and self.State > 0 then
         Train:SetNW2Bool("ASNP:CanLocked",true)

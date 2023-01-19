@@ -545,17 +545,20 @@ function TRAIN_SYSTEM:Trigger(name, value)
 
     local stbl = Metrostroi.ASNPSetup[self.Train:GetNW2Int("Announcer",1)]
 	if not stbl then return end
-	
+
+	local ltbl = stbl[self.Line]
+	if not ltbl then return end
+
     if (name == "R_Program2" or name == "R_Program2H") and value and self.LineOut == 0 then
 	
-        if self.State ~= 8 and stbl[self.Line] and stbl[self.Line].spec_last then
+        if self.State ~= 8 and ltbl and ltbl.spec_last then
             self:AnnQueue{"click1","buzz_start"}
             self:AnnQueue(-1)
-            self:AnnQueue(stbl[self.Line].spec_last)
+            self:AnnQueue(ltbl.spec_last)
             self:AnnQueue{"buzz_end","click2"}
 			
         elseif self.State == 8 then
-            local ltbl = Metrostroi.ASNPSetup[self.Train:GetNW2Int("Announcer",1)][self.Line]
+
             local last,lastst
             if self.Arrived then
 
@@ -594,9 +597,6 @@ function TRAIN_SYSTEM:Trigger(name, value)
         end
     end
 	
-	local ltbl = stbl[self.Line]
-	if not ltbl then return end
-	
 	if self.State >= 1 then
 	
 		if name == "R_ASNPUp" and value then
@@ -630,6 +630,7 @@ function TRAIN_SYSTEM:Trigger(name, value)
 
             self.ReturnTimer = CurTime()
             self.Line =self.Line + 1
+
             if self.Line > #stbl then self.Line = 1 end
 
         end
@@ -646,29 +647,31 @@ function TRAIN_SYSTEM:Trigger(name, value)
 
             self.State = 3
             self.ReturnTimer = CurTime()
+
         end
 
 	elseif self.State == 3 and value then	-- установка номера пути
 	
 		if name == "R_ASNPMenu" then -- применение
 
+            if self.Path and self.Station == 1 then self.Station = #ltbl
+            elseif self.Path == false and self.Station == #ltbl then self.Station = 1
+            end
+
 			self.State = 4
 			self.ReturnTimer = CurTime()		
 		end		
 		if (name == "Up1" or name == "Down1") then -- Кнопка вверх и вниз
 			
-            if self.Path then self.Path = false else self.Path = true end
+            self.Path = not self.Path
 			self.ReturnTimer = CurTime()		
 		end
 		
 	elseif self.State == 4 and value then -- установка номера маршрута
+
 		if name == "R_ASNPMenu" then -- применение 1
 
             self.Selected = 1
-
-            -- выдача остальных статусов, перевод на след. статус настройки и выдача таймера, который автоматически возвращает на основной 8 статус
-            --self.LastStation = 0
-            --self.FirstStation = 0
 
 			self.State = 5
 			self.ReturnTimer = CurTime()
@@ -727,8 +730,7 @@ function TRAIN_SYSTEM:Trigger(name, value)
 		if name == "R_ASNPMenu" then -- применение
 
             self.LastStation = isstring(tbl[self.Selected]) and -1 or tbl[self.Selected][2]
-
-            self.Selected = self.Station or self.Selected
+            self.Selected = self.Station or 1
 
             self.State = 6
             self.ReturnTimer = CurTime()
@@ -775,7 +777,8 @@ function TRAIN_SYSTEM:Trigger(name, value)
 
         if (name == "Up1" or name == "Down1") then -- Кнопка вверх и вниз
 
-            if self.Arrived then self.Arrived = false else self.Arrived = true end
+            --if self.Arrived then self.Arrived = false else self.Arrived = true end
+            self.Arrived = not self.Arrived
             self.ReturnTimer = CurTime()
         end
 

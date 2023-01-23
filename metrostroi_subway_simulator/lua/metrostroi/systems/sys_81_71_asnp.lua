@@ -918,7 +918,7 @@ function TRAIN_SYSTEM:Think()
 	end
 
     -- возвращение к номеру станции при выборе текущей
-    if self.ReturnSelected and CurTime() - self.ReturnSelected > 1 then 
+    if self.ReturnSelected and CurTime() - self.ReturnSelected > 0.5 then 
 
         self.Selected = self.SelectStation
         self.ReturnSelected = nil

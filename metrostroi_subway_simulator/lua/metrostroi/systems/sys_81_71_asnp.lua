@@ -49,7 +49,7 @@ function TRAIN_SYSTEM:Initialize()
     self.K1 = 0
     self.K2 = 0
 
-    self.Timer = CurTime()
+    --self.Timer = CurTime()
 end
 
 if TURBOSTROI then return end
@@ -320,9 +320,9 @@ if CLIENT then
 
                     self:PrintText(0, 1, string.rep("I", path and 2 or 1))
 
-                    if Train:GetNW2Bool("ASNP:IKPORT", false) then self:PrintText(5, 0, "$")				
+                   --[[ if Train:GetNW2Bool("ASNP:IKPORT", false) then self:PrintText(5, 0, "$")				
                     elseif Train:GetNW2Bool("ASNP:StationArr", false) then self:PrintText(5, 0, "+")
-                    end
+                    end]]
                     
                     if RouteNumber[1] ~= "0" then self:PrintText(2.5, 1, RouteNumber[1]) end
                     self:PrintText(3.5, 1, RouteNumber[2])
@@ -1038,7 +1038,7 @@ function TRAIN_SYSTEM:Think()
 
     end
 
-    if self.State == 8 then
+    --[[if self.State == 8 then
         local path = Train:ReadCell(49170)
 		local station = Train:ReadCell(49169)		
 		local stbl
@@ -1097,5 +1097,5 @@ function TRAIN_SYSTEM:Think()
 			Train:SetNW2Bool("ASNP:StationArr",find)
 			Train:SetNW2Bool("ASNP:IKPORT",find2)			
 		end
-	end
+	end]]
 end

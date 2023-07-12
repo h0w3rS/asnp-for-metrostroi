@@ -49,7 +49,12 @@ function TRAIN_SYSTEM:Initialize()
     self.K1 = 0
     self.K2 = 0
 
-    --self.Timer = CurTime()
+    self.Timer = CurTime()
+
+    self.NextStation = 0
+    self.CheckArrived = false
+    self.CheckStation = 0
+    self.CheckPath = true
 end
 
 if TURBOSTROI then return end
@@ -320,9 +325,9 @@ if CLIENT then
 
                     self:PrintText(0, 1, string.rep("I", path and 2 or 1))
 
-                   --[[ if Train:GetNW2Bool("ASNP:IKPORT", false) then self:PrintText(5, 0, "$")				
+                    if Train:GetNW2Bool("ASNP:IKPORT", false) then self:PrintText(5, 0, "$")				
                     elseif Train:GetNW2Bool("ASNP:StationArr", false) then self:PrintText(5, 0, "+")
-                    end]]
+                    end
                     
                     if RouteNumber[1] ~= "0" then self:PrintText(2.5, 1, RouteNumber[1]) end
                     self:PrintText(3.5, 1, RouteNumber[2])
@@ -785,6 +790,7 @@ function TRAIN_SYSTEM:Trigger(name, value)
             self.ReturnSelected = nil
 
 			self.Station = self.Selected
+            self.NextStation = self.Selected
 
 			self.State = 7
 			self.ReturnTimer = CurTime()
@@ -813,26 +819,6 @@ function TRAIN_SYSTEM:Trigger(name, value)
         end
 
 	elseif self.State == 8 and value then -- обычный статус при работе
-	
-		--[[if name == "Up1" then -- кнопка вверх
-
-			if self.LastStation == -1 then --кольцевой
-				self.Station = self.Path and (self.Station == #ltbl and 1 or self.Station+1) or (self.Station == 1 and #ltbl or self.Station-1)
-			else
-				self.Station = self.Path and math.min(#ltbl,self.Station+1) or math.max(1,self.Station-1)
-			end
-
-		end
-
-		if name == "Down1" then -- кнопка вниз
-
-			if self.LastStation == -1 then --кольцевой
-				self.Station = self.Path and (self.Station == 1 and #ltbl or self.Station-1) or (self.Station == #ltbl and 1 or self.Station+1)	
-			else
-				self.Station = self.Path and math.max(self.LastStation,self.Station-1) or math.min(self.LastStation,self.Station+1)
-			end
-
-		end]]
 		
 		if name == "R_ASNPMenu" then -- возвращение к редактированию и выставление таймера бездействия при настройке АСНП
 
@@ -845,6 +831,16 @@ function TRAIN_SYSTEM:Trigger(name, value)
         if name == "Down1" and value then self:Next() end -- вниз
 
 		if (name == "R_Program1" or name == "R_Program1H") and value and self.LineOut == 0 then -- объявления
+
+            -- если игрок не отправился со станции
+            if self.CheckArrived == true then
+
+                self.Path = self.CheckPath
+                self:Play(true)
+
+                return
+
+            end
 
             -- если прибывает на конечку
             if self.Arrived and self.Station == self.LastStation then
@@ -1038,46 +1034,97 @@ function TRAIN_SYSTEM:Think()
 
     end
 
-    --[[if self.State == 8 then
+    if self.State == 8 then
         local path = Train:ReadCell(49170)
 		local station = Train:ReadCell(49169)		
 		local stbl
 		if station ~= 0 and path ~= 0 then
+
 			stbl = Metrostroi.Stations[station][path]
 			local ltbl = Metrostroi.ASNPSetup[Train:GetNW2Int("Announcer",1)][self.Line]
 
 			local dist = Train:ReadCell(49165)-6.5
+            -- если человек покинул станцию
+            if dist > 40 and self.CheckArrived == true then
+
+                self:Next()
+
+                self.CheckArrived = false
+                self.CheckStation = 0
+                self.CheckPath = false
+
+               -- print ("убрал информацию о check arrived, station, path")
+                return
+            end
+
 			if not dist or Train:ReadCell(49165) == 0 then return end
 
 			local find,find2 = false,false
 			if dist < 40 then
+
 				if CurTime()-self.Timer > 0 then
 					self.Timer = CurTime()+math.Rand(2.5,3)		
 				end
+
 				if CurTime()-self.Timer > -1 and CurTime()-self.Timer < 0 then
+
+                    -- переменная номера станции и поиск её из конфига карты
 					local st = 0
 					for i=1,#ltbl do
 						local Map = game.GetMap() or ""
 						if ltbl[i][1] == station or (Map:find("gm_metro_crossline_c") and ltbl[i][1] == station-799) then
-							st=i
+
+                            st = i
 							break
 						end
 					end
-					if st == 0 then return end	
-					if (self.Path and st >= self.LastStation or not self.Path and st <= self.LastStation) or self.LastStation == -1 then
-						if self.Station ~= st then
-							self.Station = st			
-						end
-					end		
+
+                    -- если станции вообще нет
+                    local Map = game.GetMap() or ""
+                    if (Map:find("gm_metro_pink_line_redux_v1")) then st = st - 1 end
+
+					if st == 0 then return end
+                    if self.CheckArrived == true then 
+                        find = true
+                        return 
+                    end
+
+                    if st == self.FirstStation then
+                        find = true
+                        return
+                    end
+                
+                    -- выдача номера след. станции
+                    if self.Path then 
+                        self.NextStation = st - 1
+                       -- print ("если path = true")
+                    else 
+                        self.NextStation = st + 1
+                        --print ("если path = false")
+                    end
+
+                    --print ("station: ".. st)
+
+
+                    -- запись в хранение
+                    self.CheckArrived = true
+                    self.CheckStation = st
+                    self.CheckPath = self.Path
+
+                    self.Station = st 
+
+                    -- проигрывание записи информатора
+                    self:Play(false)
+                    self.Arrived = true
+
 					find = true								
 				end
-				--find = (st ~= 0)
+
 			end
+
 			find2 = math.abs(dist) < 9 and (CurTime()%2 < 0.2 or CurTime()%2 > 1.8)--IKPORT
 			if find2 then
-				if path ~= 0 and self.Path ~= (path == 2) then
-					self.Path = (path == 2)
-				end
+
 				local st = 0
 				local Map = game.GetMap() or ""
 				for i=1,#ltbl do
@@ -1086,16 +1133,13 @@ function TRAIN_SYSTEM:Think()
 						break
 					end	
 				end
+
 				if st == 0 then return end					
-				if (self.Path and st >= self.LastStation or not self.Path and st <= self.LastStation) or self.LastStation == -1 then
-					if self.Station ~= st then
-						self.Station = st			
-					end
-					find = true			
-				end						
+				
 			end
-			Train:SetNW2Bool("ASNP:StationArr",find)
-			Train:SetNW2Bool("ASNP:IKPORT",find2)			
+
+			Train:SetNW2Bool("ASNP:StationArr", find)
+			Train:SetNW2Bool("ASNP:IKPORT", find2)			
 		end
-	end]]
+	end
 end

@@ -325,8 +325,8 @@ if CLIENT then
 
                     self:PrintText(0, 1, string.rep("I", path and 2 or 1))
 
-                    if Train:GetNW2Bool("ASNP:IKPORT", false) then self:PrintText(5, 0, "$")				
-                    elseif Train:GetNW2Bool("ASNP:StationArr", false) then self:PrintText(5, 0, "+")
+                    if Train:GetNW2Bool("ASNP:IKPORT", false) then self:PrintText(4, 0, "$")				
+                    elseif Train:GetNW2Bool("ASNP:StationArr", false) then self:PrintText(4, 0, "+")
                     end
                     
                     if RouteNumber[1] ~= "0" then self:PrintText(2.5, 1, RouteNumber[1]) end

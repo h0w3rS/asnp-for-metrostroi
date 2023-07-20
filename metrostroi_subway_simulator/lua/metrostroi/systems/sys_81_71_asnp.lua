@@ -395,9 +395,36 @@ function TRAIN_SYSTEM:Prev()
 
     local tbl = Metrostroi.ASNPSetup[self.Train:GetNW2Int("Announcer",1)][self.Line]
 
-    if tbl.Loop then self.Station = self.Path and (self.Station == 1 and #tbl or self.Station-1) or (self.Station == #tbl and 1 or self.Station+1)	-- кольцевой
-    else self.Station = self.Path and math.max(self.LastStation, self.Station - 1) or math.min(self.LastStation, self.Station + 1) -- обычный смертный
-    end
+    if tbl.Loop then
+	
+		if self.Arrived == false then
+		
+			self.Station = self.Path and (self.Station == 1 and #tbl or self.Station-1) or (self.Station == #tbl and 1 or self.Station+1)	-- кольцевой
+			self.Arrived = true
+			
+		else self.Arrived = false
+		end
+		
+    else
+		if self.Station == self.FirstStation then return end
+		
+		if self.Station == self.LastStation then
+		
+			self.Station = self.Path and math.min(self.FirstStation, self.Station + 1) or math.min(self.FirstStation, self.Station - 1) -- обычный смертный
+			self.Arrived = true
+			
+			return
+		end
+		
+		if self.Arrived == false then
+		
+			self.Station = self.Path and math.min(self.FirstStation, self.Station + 1) or math.min(self.FirstStation, self.Station - 1) -- обычный смертный
+			self.Arrived = true
+			
+		else self.Arrived = false
+		
+		end
+   end
 
     self:UpdateBoards()
 end
@@ -827,8 +854,8 @@ function TRAIN_SYSTEM:Trigger(name, value)
 
 		end
 		
-		if name == "Up1" and value then self:Prev() end -- вверх
-        if name == "Down1" and value then self:Next() end -- вниз
+		if name == "Up1" and value then self:Prev() end -- предыдущие станции
+        if name == "Down1" and value then self:Next() end -- след. станции
 
 		if (name == "R_Program1" or name == "R_Program1H") and value and self.LineOut == 0 then -- объявления
 
@@ -847,6 +874,7 @@ function TRAIN_SYSTEM:Trigger(name, value)
                 self:Zero() 
             end
 
+			-- проигрывание информации и выдача след. станции
             self:Play(self.Arrived)
             self:Next()
 
@@ -975,11 +1003,12 @@ function TRAIN_SYSTEM:Think()
     self.LineOut = #Train.Announcer.Schedule > 0 and 1 or 0
 
     Train:SetNW2Bool("ASNP:Playing", self.LineOut > 0)          -- проигрывание информатора
-    Train:SetNW2Bool("ASNP:StopMessage", self.StopMessage)
+    Train:SetNW2Bool("ASNP:StopMessage", self.StopMessage)		-- сообщение остановки
     Train:SetNW2Bool("ASNP:ReturnSelected", self.SelectStation) -- восстановление статуса 
 	
     -- блокировка дверей
     if Train.VBD and self.State > 0 then
+	
         Train:SetNW2Bool("ASNP:CanLocked",true)
         if self.State < 7 then
 
@@ -1034,7 +1063,8 @@ function TRAIN_SYSTEM:Think()
 
     end
 
-    if self.State == 8 then
+    if self.State == 8 then -- рабочий статус аснп
+	
         local path = Train:ReadCell(49170)
 		local station = Train:ReadCell(49169)		
 		local stbl
@@ -1043,7 +1073,9 @@ function TRAIN_SYSTEM:Think()
 			stbl = Metrostroi.Stations[station][path]
 			local ltbl = Metrostroi.ASNPSetup[Train:GetNW2Int("Announcer",1)][self.Line]
 
+			-- получение дистанции до метки
 			local dist = Train:ReadCell(49165)-6.5
+			
             -- если человек покинул станцию
             if dist > 40 and self.CheckArrived == true then
 
@@ -1053,7 +1085,7 @@ function TRAIN_SYSTEM:Think()
                 self.CheckStation = 0
                 self.CheckPath = false
 
-               -- print ("убрал информацию о check arrived, station, path")
+               -- print ("[debug] убрал информацию о check arrived, station, path")
                 return
             end
 
@@ -1079,28 +1111,69 @@ function TRAIN_SYSTEM:Think()
 						end
 					end
 
-                    -- если станции вообще нет
                     local Map = game.GetMap() or ""
                     if (Map:find("gm_metro_pink_line_redux_v1")) then st = st - 1 end
 
+					-- если станции вообще нет
 					if st == 0 then return end
+					
+					-- если она активная после объявления
                     if self.CheckArrived == true then 
                         find = true
                         return 
                     end
 
+					-- если текущая станция равняется начальной
                     if st == self.FirstStation then
                         find = true
                         return
                     end
+					
+					-- выдача пути при неверной настройке АСНП
+					
+					local get_line = false
+					if Train:ReadCell(49168) == 2 then get_line = true end
+					
+					if self.Path != get_line then
+					
+						self.Path = get_line 
+						
+						local tbl = {}
+
+						if ltbl.Loop then table.insert(tbl, "КОЛЬЦЕВОЙ") end
+
+						if self.Path then -- конечные станции по 2 пути
+
+							for i = 1, math.min(self.Station, #ltbl-1) do
+								if ltbl[i].arrlast then
+									table.insert(tbl,{ltbl[i],i})
+								end
+							end 	
+
+						else -- 1 путь
+
+							for i = math.max(2, self.Station),#ltbl do
+								if ltbl[i].arrlast then
+									table.insert(tbl,{ltbl[i],i})
+								end
+							end 	
+
+						end	
+
+
+						self.FirstStation = self.Path and #ltbl or 1
+						self.LastStation = isstring(tbl[self.Selected]) and -1 or tbl[self.Selected][2]
+
+						
+					end
                 
                     -- выдача номера след. станции
                     if self.Path then 
                         self.NextStation = st - 1
-                       -- print ("если path = true")
+                       -- print ("[debug] если path = true")
                     else 
                         self.NextStation = st + 1
-                        --print ("если path = false")
+                        --print ("[debug] если path = false")
                     end
 
                     --print ("station: ".. st)
